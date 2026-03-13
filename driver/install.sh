@@ -14,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 MODNAME="hp-omen-core"
-MODVER=$(grep -oP 'PACKAGE_VERSION="\K[^"]+' dkms.conf 2>/dev/null || echo "1.0.0")
+MODVER=$(grep -oP 'PACKAGE_VERSION="\K[^"]+' dkms.conf 2>/dev/null || echo "1.0.1")
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Kernel version detection ──────────────────────────────────────────────────
@@ -146,7 +146,7 @@ do_install() {
         # Create an RGB-only DKMS config
         cat > "$SCRIPT_DIR/dkms.conf.auto" <<'DKMSRGB'
 PACKAGE_NAME="hp-omen-core"
-PACKAGE_VERSION="1.0.0"
+PACKAGE_VERSION="1.0.1"
 MAKE[0]="grep -iq clang /proc/version && make LLVM=1 -C $kernel_source_dir M=$dkms_tree/$module/$module_version/build EXTRA_CFLAGS='' modules || make -C $kernel_source_dir M=$dkms_tree/$module/$module_version/build EXTRA_CFLAGS='' modules"
 CLEAN=true
 BUILT_MODULE_NAME[0]="hp-omen-core"

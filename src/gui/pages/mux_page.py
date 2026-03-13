@@ -166,6 +166,7 @@ class MUXPage(Gtk.Box):
         
         self.btn_dgpu = Gtk.ToggleButton(child=dgpu_icon)
         self.btn_dgpu.add_css_class("mux-btn")
+        self.btn_dgpu.set_group(self.btn_igpu)
         self.btn_dgpu.connect("toggled", lambda w: self._on_mode_select("discrete") if w.get_active() else None)
         self.dgpu_outer.append(self.btn_dgpu)
         
@@ -190,6 +191,7 @@ class MUXPage(Gtk.Box):
         
         self.btn_hybrid = Gtk.ToggleButton(child=hybrid_icon)
         self.btn_hybrid.add_css_class("mux-btn")
+        self.btn_hybrid.set_group(self.btn_igpu)
         self.btn_hybrid.connect("toggled", lambda w: self._on_mode_select("hybrid") if w.get_active() else None)
         self.hybrid_outer.append(self.btn_hybrid)
 

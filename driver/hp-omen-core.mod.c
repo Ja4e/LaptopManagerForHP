@@ -17,4 +17,5 @@ __section(".gnu.linkonce.this_module") = {
 
 MODULE_INFO(depends, "wmi");
 
-MODULE_INFO(rhelversion, "10.99");
+
+MODULE_INFO(srcversion, "9CD33447C7887541BDF41AD");

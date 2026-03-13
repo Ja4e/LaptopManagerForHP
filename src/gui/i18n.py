@@ -105,6 +105,7 @@ TRANSLATIONS = {
         "saver_tooltip": "Maksimum pil ömrü için enerji tasarrufu sağlar. (Düşük Güç Limitleri)",
         "balanced_tooltip": "Güç ve tasarruf arasında denge kurar. (Optimize Güç Limitleri)",
         "performance_tooltip": "Tüm limitleri kaldırır ve en yüksek performansı almanızı sağlar.",
+        "power_managed_by": "Güç modu {tool} tarafından yönetilmektedir.",
 
     },
     "en": {
@@ -204,6 +205,7 @@ TRANSLATIONS = {
         "saver_tooltip": "Maximum battery life with reduced power limits.",
         "balanced_tooltip": "Balance between power and efficiency.",
         "performance_tooltip": "Remove all power limits for maximum performance.",
+        "power_managed_by": "Power mode is managed by {tool}.",
     },
 }
 

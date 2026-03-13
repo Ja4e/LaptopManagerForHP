@@ -1,1 +1,1 @@
-savedcmd_Module.symvers :=  /usr/src/kernels/6.18.16-200.fc43.x86_64/scripts/mod/modpost -M          -o Module.symvers -n -T modules.order -i /usr/src/kernels/6.18.16-200.fc43.x86_64/Module.symvers -e 
+savedcmd_Module.symvers :=  /usr/lib/modules/7.0.0-rc3-1-cachyos-rc-gcc/build/scripts/mod/modpost -M    -a    -N  -o Module.symvers -n -T modules.order -i /usr/lib/modules/7.0.0-rc3-1-cachyos-rc-gcc/build/Module.symvers -e 

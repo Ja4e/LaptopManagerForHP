@@ -375,6 +375,11 @@ class DashboardPage(Gtk.Box):
 
         vbox.append(self._perf_strip)
 
+        self._conflict_lbl = Gtk.Label(label="", use_markup=True, xalign=0.5, wrap=True)
+        self._conflict_lbl.add_css_class("warning-text")
+        self._conflict_lbl.set_visible(False)
+        vbox.append(self._conflict_lbl)
+
         return card
 
     # ── tiny helpers ──────────────────────────────────────────────────────
@@ -550,6 +555,19 @@ class DashboardPage(Gtk.Box):
             except Exception:
                 pass
 
+        # ── Power tool conflict check ─────────────────────────────────────
+        d["power_conflict"] = None
+        for tool in ("tlp", "auto-cpufreq"):
+            try:
+                # Check if service is active
+                res = subprocess.run(["systemctl", "is-active", f"{tool}.service"], 
+                                     capture_output=True, text=True)
+                if res.stdout.strip() == "active":
+                    d["power_conflict"] = tool
+                    break
+            except Exception:
+                pass
+
         self._data = d
         GLib.idle_add(self._apply)
 
@@ -606,6 +624,16 @@ class DashboardPage(Gtk.Box):
                     self._block_perf_sync = True
                     btn.set_active(True)
                     self._block_perf_sync = False
+
+        # Handle power tool conflicts
+        conflict = d.get("power_conflict")
+        if conflict:
+            self._perf_strip.set_sensitive(False)
+            self._conflict_lbl.set_label(f"<span color='green'>{T('power_managed_by').format(tool=conflict.upper())}</span>")
+            self._conflict_lbl.set_visible(True)
+        else:
+            self._perf_strip.set_sensitive(True)
+            self._conflict_lbl.set_visible(False)
 
         fan = d.get("fan", {})
         fm = fan.get("mode", "auto").capitalize()

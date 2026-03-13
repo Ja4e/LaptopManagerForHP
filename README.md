@@ -1,5 +1,5 @@
 
- # HP Laptop Manager (Linux) v1.0.0 #
+ # HP Laptop Manager (Linux) v1.0.1 #
 <p align="center">
   <img src="images/hplogolight.png" alt="Logo" width="250">
 
@@ -22,7 +22,13 @@
 
 **HP Laptop Manager** is a native Linux application designed to unlock the full potential of HP Omen and Victus series laptops. It serves as an open-source alternative to the official OMEN Gaming Hub, providing essential controls in a modern, user-friendly interface.
 
-**New in v1.0.0:**
+**New in v1.0.1:**
+
+- 🟢 **Minimal Fixes**: Small stability improvements and minor bug fixes.
+
+**Previous Releases:**
+
+**v1.0.0:**
 
 > 📦 **Versioning Change**: Starting with this release, the project adopts **Semantic Versioning** (`major.minor.patch`) for a more professional and standardized release cycle. Previous versions (v4.x) have been remapped accordingly.
 

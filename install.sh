@@ -113,15 +113,15 @@ fi
 
 # --- DETECT PACKAGE MANAGER ---
 detect_pm() {
-    if command -v pacman &>/dev/null; then
+    if [ -f /etc/fedora-release ] || [ -f /etc/nobara-release ] || command -v dnf &>/dev/null; then
+        PM="dnf"
+        INSTALL_CMD="dnf install -y"
+    elif command -v pacman &>/dev/null; then
         PM="pacman"
         INSTALL_CMD="pacman -S --noconfirm --needed"
     elif command -v apt &>/dev/null; then
         PM="apt"
         INSTALL_CMD="apt install -y"
-    elif command -v dnf &>/dev/null; then
-        PM="dnf"
-        INSTALL_CMD="dnf install -y"
     elif command -v zypper &>/dev/null; then
         PM="zypper"
         INSTALL_CMD="zypper install -y"
