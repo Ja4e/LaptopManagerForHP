@@ -751,18 +751,40 @@ class HPManagerService(object):
         except Exception:
             pass
 
-        # CPU temp detection — Improved with better priority and fallbacks
+        # CPU temp detection — Professional Hierarchy (btop style)
         cpu_candidates = []
-        # zenpower/k10temp (AMD), coretemp (Intel), then others
-        for drv in ("zenpower", "k10temp", "coretemp", "cpu_thermal", "acpitz", "hp_wmi"):
-            hp = _find_hwmon_by_name(drv)
-            if not hp:
+        
+        # Driver Priority: Special drivers > Core drivers > Generic ACPI
+        DRIVER_RANK = {
+            "zenpower": 100,
+            "coretemp": 90,
+            "k10temp": 90,
+            "cpu_thermal": 80,
+            "hp_wmi": 60,
+            "acpitz": 30
+        }
+
+        # Label Priority: Tdie/Package are best for overall temp
+        LABEL_RANK = {
+            "tdie": 100,
+            "package id 0": 95,
+            "tctl": 90,
+            "core": 80,
+            "composite": 50,
+            "temp": 10
+        }
+
+        for drv, drv_score in DRIVER_RANK.items():
+            hp_path = _find_hwmon_by_name(drv)
+            if not hp_path:
                 continue
 
-            for tf in glob.glob(os.path.join(hp, "temp*_input")):
+            for tf in glob.glob(os.path.join(hp_path, "temp*_input")):
                 try:
                     with open(tf) as f:
                         t = int(f.read().strip()) / 1000
+                    
+                    if t <= 0 or t > 125: continue # Ignore physical impossibilities
                     
                     label_path = tf.replace("_input", "_label")
                     label = ""
@@ -770,37 +792,37 @@ class HPManagerService(object):
                         with open(label_path) as f:
                             label = f.read().strip().lower()
                     
-                    # Ignore invalid readings
-                    if t <= 0 or t > 120:
-                        continue
-
-                    # Assign weight based on label and driver
-                    weight = 0
-                    if any(x in label for x in ("tctl", "tdie", "package id 0", "core")):
-                        weight = 100
-                    elif drv in ("zenpower", "k10temp", "coretemp"):
-                        weight = 50
-                    elif drv == "acpitz":
-                        weight = -50
-                        # 75.0 is a very common "fixed" or "stuck" fallback in Linux ACPI/hwmon
-                        if t == 75.0 or t == 0.0:
-                            weight = -500
+                    # Calculate weight
+                    label_score = 0
+                    for l_key, score in LABEL_RANK.items():
+                        if l_key in label:
+                            label_score = max(label_score, score)
+                    
+                    total_weight = drv_score + label_score
+                    
+                    # Anti-Stuck Logic: Common ACPI bugs (e.g., 75.0 on HP/Victus)
+                    if drv == "acpitz" and (t == 75.0 or t == 0.0):
+                        total_weight -= 200 # Immediate disqualification if anything else exists
                         
-                    cpu_candidates.append((t, weight, drv))
-                except Exception:
-                    continue
+                    cpu_candidates.append({
+                        "temp": t,
+                        "weight": total_weight,
+                        "driver": drv,
+                        "label": label
+                    })
+                except Exception: continue
         
         if cpu_candidates:
-            # Sort by weight (desc) and then temperature (desc) to get the most relevant/active sensor
-            cpu_candidates.sort(key=lambda x: (x[1], x[0]), reverse=True)
-            info["cpu_temp"] = cpu_candidates[0][0]
+            # Sort by weight (primary) and then temp (secondary - usually want the hottest core if labels are same)
+            cpu_candidates.sort(key=lambda x: (x["weight"], x["temp"]), reverse=True)
+            info["cpu_temp"] = cpu_candidates[0]["temp"]
         else:
-            # Last ditch effort: any hwmon with 'cpu' in label or name
+            # Absolute fallback: Find ANY reasonable temp from ANY hwmon
             try:
                 for path in glob.glob("/sys/class/hwmon/hwmon*/temp*_input"):
                     with open(path) as f:
                         t = int(f.read().strip()) / 1000
-                    if 30 < t < 100: # reasonable idle/load range
+                    if 35 < t < 110:
                         info["cpu_temp"] = t
                         break
             except Exception: pass
