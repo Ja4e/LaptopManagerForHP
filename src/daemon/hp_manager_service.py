@@ -757,6 +757,22 @@ class HPManagerService(object):
         return best_t
 
     def _get_cached_gpu_temp(self):
+        # 1. Önce Sysfs üzerinden oku (Sıfıra yakın CPU tüketimi)
+        try:
+            for d in os.listdir("/sys/class/hwmon"):
+                path = os.path.join("/sys/class/hwmon", d)
+                try:
+                    with open(os.path.join(path, "name")) as f:
+                        name = f.read().strip().lower()
+                    if name in ("amdgpu", "i915", "nouveau"):
+                        with open(os.path.join(path, "temp1_input")) as f:
+                            return int(f.read().strip()) / 1000.0
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        # 2. Eğer hwmon üzerinden gpu bulunamazsa nvidia-smi kullan (Ağır işlem)
         if shutil.which("nvidia-smi"):
             try:
                 out = subprocess.check_output(
@@ -766,19 +782,7 @@ class HPManagerService(object):
                 return float(out)
             except Exception:
                 pass
-        try:
-            for d in os.listdir("/sys/class/hwmon"):
-                path = os.path.join("/sys/class/hwmon", d)
-                try:
-                    with open(os.path.join(path, "name")) as f:
-                        name = f.read().strip().lower()
-                    if name in ("amdgpu", "i915"):
-                        with open(os.path.join(path, "temp1_input")) as f:
-                            return int(f.read().strip()) / 1000.0
-                except Exception:
-                    continue
-        except Exception:
-            pass
+                
         return "NOT_REACHABLE"
 
     def CleanMemory(self):
