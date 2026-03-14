@@ -124,7 +124,9 @@ class DashboardPage(Gtk.Box):
     """Main dashboard: 4-pane grid with info bar."""
 
     def __init__(self, service=None, on_navigate=None):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        super().__init__()
+        self.set_orientation(Gtk.Orientation.VERTICAL)
+        self.set_spacing(0)
         self.service = service
         self.on_navigate = on_navigate
         self._timer_id = None
@@ -631,11 +633,11 @@ class DashboardPage(Gtk.Box):
                     btn.set_active(True)
                     self._block_perf_sync = False
 
-        # Handle power tool conflicts (TLP, auto-cpufreq)
         conflict = d.get("power_conflict")
         if conflict:
             self._pills["power"].set_label(f"{conflict.upper()}")
-            self._perf_strip.set_sensitive(False)
+            # auto-cpufreq takes full control, but TLP is often optional/complementary
+            self._perf_strip.set_sensitive(conflict != "tlp")
             self._conflict_lbl.set_label(f"<span color='#57e389'>{T('power_managed_by').format(tool=conflict.upper())}</span>")
             self._conflict_lbl.set_visible(True)
         else:

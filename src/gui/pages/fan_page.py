@@ -302,7 +302,9 @@ class SystemMonitor(threading.Thread):
 
 class FanPage(Gtk.Box):
     def __init__(self, service=None):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        super().__init__()
+        self.set_orientation(Gtk.Orientation.VERTICAL)
+        self.set_spacing(0)
         self.service = service
         self.fan_mode = "standard" # Default to standard, will sync later
         self._curve_timer = None
@@ -834,7 +836,8 @@ class FanPage(Gtk.Box):
         # Handle TLP / auto-cpufreq conflict
         conflict = data.get("power_conflict")
         if conflict:
-            self.profile_box.set_sensitive(False)
+            # TLP doesn't strictly block profile switching, but auto-cpufreq does.
+            self.profile_box.set_sensitive(conflict != "tlp")
             self._pp_conflict_lbl.set_label(
                 f"<span color='#57e389'>{T('power_managed_by').format(tool=conflict.upper())}</span>")
             self._pp_conflict_lbl.set_visible(True)
