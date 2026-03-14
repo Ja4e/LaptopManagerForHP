@@ -542,7 +542,7 @@ def load_state():
             if isinstance(loaded.get("f1_fix"), bool):
                 state["f1_fix"] = loaded["f1_fix"]
 
-            # --- Win lock (FIX: was missing in previous version) ---
+            # --- Win lock ---
             if isinstance(loaded.get("win_lock"), bool):
                 state["win_lock"] = loaded["win_lock"]
 
@@ -680,9 +680,9 @@ class HPManagerService(object):
     def GetSystemInfo(self):
         now = time.time()
         si  = state.get("_system_info_cache")
-        if si and (now - state.get("_system_info_last", 0) < 10):
-            si["cpu_temp"] = self._get_cached_cpu_temp()
-            si["gpu_temp"] = self._get_cached_gpu_temp()
+        
+        # Süre (2 saniye) dolmadıysa hiçbir donanım sorgusu yapma, doğrudan cache'i dön.
+        if si and (now - state.get("_system_info_last", 0) < 2.0):
             return json.dumps(si)
 
         info = {
@@ -831,7 +831,7 @@ class HPManagerService(object):
         if prtsc:
             content.append(" KEYBOARD_KEY_b7=sysrq")   # PrtSc -> SysRq
         if f1:
-            content.append(" KEYBOARD_KEY_ab=f1")       # Presentation key -> F1
+            content.append(" KEYBOARD_KEY_ab=f1")        # Presentation key -> F1
 
         try:
             os.makedirs(os.path.dirname(hwdb_path), exist_ok=True)
