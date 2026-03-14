@@ -3,7 +3,17 @@
 HP Laptop Manager - Main Window
 Sidebar navigation ile 5 sekme + ayarlar.
 """
-import sys, os, json
+import sys, os, json, fcntl
+
+# --- SINGLE INSTANCE LOCK ---
+lock_file = "/tmp/hp_laptop_manager.lock"
+try:
+    _lock_fp = open(lock_file, 'w')
+    fcntl.lockf(_lock_fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except (IOError, OSError):
+    print("Application is already running.")
+    sys.exit(1)
+
 try:
     import tomllib  # Python 3.11+
 except ImportError:
@@ -53,6 +63,22 @@ CONFIG_FILE_JSON = os.path.expanduser("~/.config/hp-manager.json")
 
 # ── TRANSLATIONS (centralized in i18n.py to avoid __main__ double-import) ──
 from i18n import T, set_lang, get_lang
+
+def get_model_branding():
+    try:
+        # Check both product_name and product_family to be safe
+        for dmi_file in ("/sys/class/dmi/id/product_name", "/sys/class/dmi/id/product_family"):
+            if os.path.exists(dmi_file):
+                with open(dmi_file, "r") as f:
+                    name = f.read().lower()
+                    if "omen" in name:
+                        return "OMEN"
+                    elif "victus" in name:
+                        return "Victus"
+    except Exception:
+        pass
+    return "HP Laptop"
+
 
 
 class HPManagerWindow(Gtk.ApplicationWindow):
