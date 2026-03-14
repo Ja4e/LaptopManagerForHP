@@ -79,19 +79,34 @@ install_deps() {
         arch|manjaro|endeavouros|garuda|cachyos)
             info "Installing dependencies (pacman)..."
             # Arch kernel header detection
-            local HEADERS_PKG="linux-headers"
-            if [[ $(uname -r) == *"-zen"* ]]; then
+            local HEADERS_PKG=""
+            local RUNNING_KVER=$(uname -r)
+            
+            if [[ $RUNNING_KVER == *"-cachyos"* ]]; then
+                # Try specific cachyos headers first, but verify if they exist in repo
+                if pacman -Si linux-cachyos-headers &>/dev/null; then
+                    HEADERS_PKG="linux-cachyos-headers"
+                else
+                    # Fallback for other CachyOS flavors or if pkg name differs
+                    HEADERS_PKG="linux-headers"
+                fi
+            elif [[ $RUNNING_KVER == *"-zen"* ]]; then
                 HEADERS_PKG="linux-zen-headers"
-            elif [[ $(uname -r) == *"-lts"* ]]; then
+            elif [[ $RUNNING_KVER == *"-lts"* ]]; then
                 HEADERS_PKG="linux-lts-headers"
-            elif [[ $(uname -r) == *"-hardened"* ]]; then
+            elif [[ $RUNNING_KVER == *"-hardened"* ]]; then
                 HEADERS_PKG="linux-hardened-headers"
-            elif [[ $(uname -r) == *"-cachyos"* ]]; then
-                HEADERS_PKG="linux-cachyos-headers"
-            elif [[ $(uname -r) == *"-rt"* ]]; then
+            elif [[ $RUNNING_KVER == *"-rt"* ]]; then
                 HEADERS_PKG="linux-rt-headers"
+            else
+                HEADERS_PKG="linux-headers"
             fi
-            pacman -S --needed --noconfirm dkms "$HEADERS_PKG" base-devel
+            
+            info "Attempting to install: dkms $HEADERS_PKG base-devel"
+            if ! pacman -S --needed --noconfirm dkms "$HEADERS_PKG" base-devel; then
+                warn "Could not install $HEADERS_PKG. Trying generic linux-headers..."
+                pacman -S --needed --noconfirm dkms linux-headers base-devel || warn "Header installation failed. DKMS might not work without headers."
+            fi
             ;;
         opensuse*|suse*)
             info "Installing dependencies (zypper)..."

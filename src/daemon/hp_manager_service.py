@@ -781,7 +781,10 @@ class HPManagerService(object):
                     elif drv in ("zenpower", "k10temp", "coretemp"):
                         weight = 50
                     elif drv == "acpitz":
-                        weight = -50 # Fallback
+                        weight = -50
+                        # 75.0 is a very common "fixed" or "stuck" fallback in Linux ACPI/hwmon
+                        if t == 75.0 or t == 0.0:
+                            weight = -500
                         
                     cpu_candidates.append((t, weight, drv))
                 except Exception:
