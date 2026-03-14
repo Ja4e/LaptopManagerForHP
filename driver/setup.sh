@@ -19,13 +19,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Kernel version detection ──────────────────────────────────────────────────
 # Kernel 7.0+ has Omen/Victus fan control in the stock hp-wmi module.
-# On those kernels we only need hp-rgb-lighting (RGB). On older kernels we
-# install both hp-wmi and hp-rgb-lighting.
-KERNEL_VER=$(uname -r | grep -oP '^\d+\.\d+')
-KERNEL_MAJOR=$(echo "$KERNEL_VER" | cut -d. -f1)
-KERNEL_MINOR=$(echo "$KERNEL_VER" | cut -d. -f2)
+# Robust version comparison:
+KVER_MAJOR=$(uname -r | cut -d. -f1)
+KVER_MINOR=$(uname -r | cut -d. -f2)
 STOCK_FAN_SUPPORT=false
-if [ "$KERNEL_MAJOR" -ge 7 ] 2>/dev/null; then
+if [ "$KVER_MAJOR" -gt 7 ] || { [ "$KVER_MAJOR" -eq 7 ] && [ "$KVER_MINOR" -ge 0 ]; }; then
     STOCK_FAN_SUPPORT=true
 fi
 
@@ -83,11 +81,14 @@ install_deps() {
             local RUNNING_KVER=$(uname -r)
             
             if [[ $RUNNING_KVER == *"-cachyos"* ]]; then
-                # Try specific cachyos headers first, but verify if they exist in repo
-                if pacman -Si linux-cachyos-headers &>/dev/null; then
+                # CachyOS has multiple nested kernel names (bore, deckify, etc.)
+                # Try to find headers matching the exact kernel suffix if possible
+                local SUFFIX=$(echo "$RUNNING_KVER" | sed 's/^[0-9.]*-[0-9]*-\(.*\)/\1/')
+                if [[ -n "$SUFFIX" ]] && pacman -Si "linux-$SUFFIX-headers" &>/dev/null; then
+                    HEADERS_PKG="linux-$SUFFIX-headers"
+                elif pacman -Si linux-cachyos-headers &>/dev/null; then
                     HEADERS_PKG="linux-cachyos-headers"
                 else
-                    # Fallback for other CachyOS flavors or if pkg name differs
                     HEADERS_PKG="linux-headers"
                 fi
             elif [[ $RUNNING_KVER == *"-zen"* ]]; then
@@ -176,7 +177,8 @@ do_install() {
     # Ensure /usr/src directory exists and copy source files
     info "Preparing source for DKMS..."
     mkdir -p "/usr/src/${MODNAME}-${MODVER}"
-    cp -r "$SCRIPT_DIR"/* "/usr/src/${MODNAME}-${MODVER}/"
+    # Copy only necessary files to avoid bloat/risks
+    cp "$SCRIPT_DIR/dkms.conf" "$SCRIPT_DIR/Makefile" "$SCRIPT_DIR"/*.c "$SCRIPT_DIR"/*.h "/usr/src/${MODNAME}-${MODVER}/"
 
     if $STOCK_FAN_SUPPORT; then
         info "Kernel $(uname -r) detected (>= 7.0) — stock hp-wmi already has Omen fan control."
@@ -198,9 +200,11 @@ DKMSRGB
 
     # Install via DKMS
     info "Installing via DKMS..."
-    dkms add -m "$MODNAME" -v "$MODVER" || true
-    dkms build -m "$MODNAME" -v "$MODVER"
-    dkms install -m "$MODNAME" -v "$MODVER" --force
+    if ! dkms status "$MODNAME/$MODVER" 2>/dev/null | grep -q "added"; then
+        dkms add -m "$MODNAME" -v "$MODVER" || true
+    fi
+    dkms build -m "$MODNAME" -v "$MODVER" || error "DKMS build failed. Check logs."
+    dkms install -m "$MODNAME" -v "$MODVER" --force || error "DKMS install failed."
 
     # ── Secure Boot check ───────────────────────────────────────────────────────
     SECUREBOOT=false
@@ -263,8 +267,9 @@ DKMSRGB
 do_uninstall() {
     [[ $EUID -ne 0 ]] && error "This script must be run as root (use sudo)."
 
-    info "Unloading module..."
+    info "Unloading modules..."
     rmmod hp_wmi 2>/dev/null || true
+    rmmod hp_rgb_lighting 2>/dev/null || true
 
     info "Removing DKMS entry..."
     if dkms status "$MODNAME/$MODVER" 2>/dev/null | grep -q "$MODNAME"; then
