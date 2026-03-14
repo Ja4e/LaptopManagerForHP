@@ -25,6 +25,8 @@
 **New in v1.1.2:**
 
 - ⚡ **Interactive Power Manager Selection**: During installation, users can now choose between `power-profiles-daemon`, `ppd-tuned` (recommended for Fedora), `TLP`, or `auto-cpufreq`.
+- 🛠️ **Pure DKMS Implementation**: Unified driver installation with pure DKMS support. Redundant manual build steps removed, and robust kernel header detection added for Arch-based (CachyOS, Zen), Fedora, and Debian distros.
+- 🔧 **Unified Setup Tool**: Replaced separate `install.sh`, `uninstall.sh`, and `update.sh` with a single, robust `./setup.sh` tool.
 - 🔋 **Enhanced Conflict Detection**: Integrated links to TLP and auto-cpufreq repositories for better user guidance during dependency installation.
 
 **New in v1.1.1:**
@@ -33,7 +35,7 @@
 - 🖥️ **GPU MUX Tool Installer**: During installation, if no GPU switching tool (`envycontrol` or `prime-select`) is detected, the installer now offers an interactive menu to install one.
 - 🐞 **Debug Information Panel**: A new "Debug Information" section has been added to the Settings page. Users can copy system info (kernel, modules, service status) to the clipboard with one click for easy troubleshooting.
 - ⚡ **Performance Optimizations**: Reduced unnecessary `systemctl` calls by caching conflict checks. TLP/auto-cpufreq status is now only polled every ~25-50 seconds instead of every refresh cycle.
-- 🔧 **In-App Updater Fix**: The auto-updater now prioritizes `update.sh` when available and uses a simplified, more robust version comparison algorithm.
+- 🔧 **In-App Updater Fix**: The auto-updater now uses `setup.sh update` and a simplified, more robust version comparison algorithm.
 
 **Previous Releases:**
 
@@ -41,7 +43,7 @@
 
 - ✨ **Name Change**: `hp-omen-core` has been renamed to `hp-rgb-lighting` to better reflect its function and support Victus devices appropriately.
 - 🔄 **Kernel 7.0+ Adaptation**: Updated internal checks. Fan control logic defaults to stock `hp-wmi` on kernels >= 7.0, and auto-installs our custom `hp-wmi` module on kernels < 7.0.
-- 🚀 **update.sh added**: Easily adapt to new kernel updates and ensure old `hp-omen-core` debris is purged from your system with one simple update script.
+- 🚀 **setup.sh update**: Easily adapt to new kernel updates and ensure old `hp-omen-core` debris is purged from your system with one simple update command.
 
 **Previous Releases:**
 
@@ -98,8 +100,8 @@ git clone https://github.com/yunusemreyl/LaptopManagerForHP.git
 cd LaptopManagerForHP
 
 # Run the installer (requires root)
-chmod +x install.sh
-sudo ./install.sh
+chmod +x setup.sh
+sudo ./setup.sh install
 ```
 
 The installer will automatically:
@@ -119,8 +121,7 @@ To completely remove the application and its services:
 
 ```bash
 cd LaptopManagerForHP
-chmod +x uninstall.sh
-sudo ./uninstall.sh
+sudo ./setup.sh uninstall
 ```
 
 ## 🐧 Compatibility

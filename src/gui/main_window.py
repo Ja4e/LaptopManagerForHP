@@ -57,7 +57,7 @@ from pages.mux_page import MUXPage
 from pages.settings_page import SettingsPage
 from pages.dashboard_page import DashboardPage
 
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.1.2"
 CONFIG_FILE = os.path.expanduser("~/.config/hp-manager.toml")
 CONFIG_FILE_JSON = os.path.expanduser("~/.config/hp-manager.json")
 

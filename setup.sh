@@ -204,11 +204,11 @@ install_dependencies() {
 # --- DRIVER MANAGEMENT ---
 manage_driver() {
     local action=$1
-    if [ -d "driver" ] && [ -f "driver/install.sh" ]; then
+    if [ -d "driver" ] && [ -f "driver/setup.sh" ]; then
         info "Running driver ${action}..."
-        (cd driver && chmod +x install.sh && ./install.sh "$action") || warn "Driver ${action} failed."
+        (cd driver && chmod +x setup.sh && ./setup.sh "$action") || warn "Driver ${action} failed."
     else
-        warn "Driver directory or install script not found!"
+        warn "Driver directory or setup script not found!"
     fi
 }
 
@@ -338,9 +338,27 @@ do_update() {
 }
 
 # --- MAIN ---
+if [ $# -eq 0 ]; then
+    echo -e "${CYAN}${APP_NAME} - Unified Setup Tool (v${VERSION})${NC}"
+    echo "Usage: sudo $0 [command]"
+    echo ""
+    echo "Commands:"
+    echo "  install    - Full installation of application and kernel driver"
+    echo "  uninstall  - Complete removal of application and driver (keeps config)"
+    echo "  update     - Pull latest changes and reinstall (useful for updates)"
+    echo ""
+    echo "Example: sudo $0 install"
+    exit 0
+fi
+
 case "${1:-install}" in
     install)   do_install ;;
     uninstall) do_uninstall ;;
     update)    do_update ;;
+    -h|--help) 
+        echo "$(msg usage)"
+        echo "Options: install, uninstall, update"
+        exit 0 
+        ;;
     *) echo "$(msg usage)"; exit 1 ;;
 esac

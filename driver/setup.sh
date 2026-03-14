@@ -78,7 +78,20 @@ install_deps() {
             ;;
         arch|manjaro|endeavouros|garuda|cachyos)
             info "Installing dependencies (pacman)..."
-            pacman -S --needed --noconfirm dkms linux-headers base-devel
+            # Arch kernel header detection
+            local HEADERS_PKG="linux-headers"
+            if [[ $(uname -r) == *"-zen"* ]]; then
+                HEADERS_PKG="linux-zen-headers"
+            elif [[ $(uname -r) == *"-lts"* ]]; then
+                HEADERS_PKG="linux-lts-headers"
+            elif [[ $(uname -r) == *"-hardened"* ]]; then
+                HEADERS_PKG="linux-hardened-headers"
+            elif [[ $(uname -r) == *"-cachyos"* ]]; then
+                HEADERS_PKG="linux-cachyos-headers"
+            elif [[ $(uname -r) == *"-rt"* ]]; then
+                HEADERS_PKG="linux-rt-headers"
+            fi
+            pacman -S --needed --noconfirm dkms "$HEADERS_PKG" base-devel
             ;;
         opensuse*|suse*)
             info "Installing dependencies (zypper)..."
@@ -138,50 +151,41 @@ do_install() {
 
     cd "$SCRIPT_DIR"
 
-    if $STOCK_FAN_SUPPORT; then
-        info "Kernel $(uname -r) detected (>= 7.0) — stock hp-wmi already has Omen fan control."
-        info "Only building hp-rgb-lighting (RGB keyboard control)..."
-
-        # Create an RGB-only DKMS config
-        cat > "$SCRIPT_DIR/dkms.conf.auto" <<'DKMSRGB'
-PACKAGE_NAME="hp-rgb-lighting"
-PACKAGE_VERSION="1.1.0"
-MAKE[0]="grep -iq clang /proc/version && make LLVM=1 -C $kernel_source_dir M=$dkms_tree/$module/$module_version/build EXTRA_CFLAGS='' modules || make -C $kernel_source_dir M=$dkms_tree/$module/$module_version/build EXTRA_CFLAGS='' modules"
-CLEAN=true
-BUILT_MODULE_NAME[0]="hp-rgb-lighting"
-DEST_MODULE_LOCATION[0]="/kernel/drivers/platform/x86/hp"
-AUTOINSTALL="yes"
-DKMSRGB
-        # Build only hp-rgb-lighting
-        make clean 2>/dev/null || true
-        make -C /lib/modules/$(uname -r)/build M="$SCRIPT_DIR" obj-m=hp-rgb-lighting.o modules || error "Build failed."
-    else
-        info "Kernel $(uname -r) detected (< 7.0) — installing both hp-wmi and hp-rgb-lighting..."
-        make clean 2>/dev/null || true
-        make || error "Build failed. Check that kernel headers are installed."
-    fi
-
     # Remove old DKMS entry if exists
     if dkms status "$MODNAME/$MODVER" 2>/dev/null | grep -q "$MODNAME"; then
         warn "Removing existing DKMS entry ($MODNAME/$MODVER)..."
         dkms remove -m "$MODNAME" -v "$MODVER" --all 2>/dev/null || true
     fi
+    rm -rf "/usr/src/${MODNAME}-${MODVER}"
 
-    # Install via DKMS with the appropriate config
-    info "Installing via DKMS..."
-    if $STOCK_FAN_SUPPORT && [ -f "$SCRIPT_DIR/dkms.conf.auto" ]; then
-        # Backup original and use RGB-only config
-        cp "$SCRIPT_DIR/dkms.conf" "$SCRIPT_DIR/dkms.conf.full"
-        cp "$SCRIPT_DIR/dkms.conf.auto" "$SCRIPT_DIR/dkms.conf"
+    # Ensure /usr/src directory exists and copy source files
+    info "Preparing source for DKMS..."
+    mkdir -p "/usr/src/${MODNAME}-${MODVER}"
+    cp -r "$SCRIPT_DIR"/* "/usr/src/${MODNAME}-${MODVER}/"
+
+    if $STOCK_FAN_SUPPORT; then
+        info "Kernel $(uname -r) detected (>= 7.0) — stock hp-wmi already has Omen fan control."
+        info "Only building hp-rgb-lighting (RGB keyboard control)..."
+
+        # Create an RGB-only DKMS config in /usr/src
+        cat > "/usr/src/${MODNAME}-${MODVER}/dkms.conf" <<DKMSRGB
+PACKAGE_NAME="hp-rgb-lighting"
+PACKAGE_VERSION="$MODVER"
+MAKE[0]="grep -iq clang /proc/version && make LLVM=1 -C \$kernel_source_dir M=\$dkms_tree/\$module/\$module_version/build EXTRA_CFLAGS='' modules || make -C \$kernel_source_dir M=\$dkms_tree/\$module/\$module_version/build EXTRA_CFLAGS='' modules"
+CLEAN=true
+BUILT_MODULE_NAME[0]="hp-rgb-lighting"
+DEST_MODULE_LOCATION[0]="/kernel/drivers/platform/x86/hp"
+AUTOINSTALL="yes"
+DKMSRGB
+    else
+        info "Kernel $(uname -r) detected (< 7.0) — installing both hp-wmi and hp-rgb-lighting..."
     fi
-    dkms add "$SCRIPT_DIR"
+
+    # Install via DKMS
+    info "Installing via DKMS..."
+    dkms add -m "$MODNAME" -v "$MODVER"
     dkms build -m "$MODNAME" -v "$MODVER"
     dkms install -m "$MODNAME" -v "$MODVER"
-    # Restore original dkms.conf
-    if [ -f "$SCRIPT_DIR/dkms.conf.full" ]; then
-        mv "$SCRIPT_DIR/dkms.conf.full" "$SCRIPT_DIR/dkms.conf"
-        rm -f "$SCRIPT_DIR/dkms.conf.auto"
-    fi
 
     # ── Secure Boot check ───────────────────────────────────────────────────────
     SECUREBOOT=false

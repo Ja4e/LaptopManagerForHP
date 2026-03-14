@@ -16,7 +16,7 @@ def T(k):
     return _T(k)
 
 
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.1.2"
 GITHUB_REPO = "yunusemreyl/LaptopManagerForHP"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 GITHUB_RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases/latest"
@@ -315,18 +315,25 @@ class SettingsPage(Gtk.Box):
                 raise RuntimeError("No directory found in tarball")
             src_dir = os.path.join(tmp_dir, extracted_dirs[0])
 
-            # Step 3: Run update.sh via pkexec (or install.sh fallback)
-            install_script = os.path.join(src_dir, "update.sh")
-            if not os.path.exists(install_script):
-                install_script = os.path.join(src_dir, "install.sh")
+            # Step 3: Run setup.sh update (or fallbacks) via pkexec
+            setup_script = os.path.join(src_dir, "setup.sh")
+            if os.path.exists(setup_script):
+                os.chmod(setup_script, 0o755)
+                cmd = ["pkexec", "bash", setup_script, "update"]
+            else:
+                # Fallback for older versions
+                install_script = os.path.join(src_dir, "update.sh")
                 if not os.path.exists(install_script):
-                    raise RuntimeError(f"update.sh or install.sh not found in {src_dir}")
+                    install_script = os.path.join(src_dir, "install.sh")
+                    if not os.path.exists(install_script):
+                        raise RuntimeError(f"setup.sh or update.sh not found in {src_dir}")
+                os.chmod(install_script, 0o755)
+                cmd = ["pkexec", "bash", install_script]
 
-            os.chmod(install_script, 0o755)
             GLib.idle_add(self._install_progress, 0.6, T("installing_update"))
 
             result = subprocess.run(
-                ["pkexec", "bash", install_script],
+                cmd,
                 cwd=src_dir,
                 capture_output=True, text=True, timeout=300
             )
