@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 HP Laptop Manager - D-Bus Daemon Service
+Root olarak çalışır, donanım erişimi sağlar.
 """
 import sys, os, time, threading, logging, json, copy, colorsys, math, shutil, subprocess, re, typing, glob, platform
 from gi.repository import GLib
@@ -15,6 +16,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("hp-manager")
 
 lock = threading.RLock()
+state_changed = threading.Event()  # Animasyon motorunu uyutmak/uyandırmak için eklendi
 HEX_COLOR_RE = re.compile(r"^[0-9A-F]{6}$")
 VALID_LIGHT_MODES = {"static", "breathing", "cycle", "wave"}
 VALID_DIRECTIONS = {"ltr", "rtl"}
@@ -396,7 +398,8 @@ class AnimationEngine(threading.Thread):
             if not pwr:
                 self.rgb.write_brightness(False)
                 self.rgb.write_all(["000000"] * 8)
-                time.sleep(0.5)
+                state_changed.clear()
+                state_changed.wait() # Kapalıyken sonsuza kadar uyur
                 continue
 
             self.rgb.write_brightness(True)
@@ -405,6 +408,14 @@ class AnimationEngine(threading.Thread):
 
             if mode == "static":
                 targets = [self._hex_to_rgb(c) for c in cols]
+                self.rgb.write_all([
+                    f"{int(r * bri):02X}{int(g * bri):02X}{int(b * bri):02X}"
+                    for r, g, b in targets
+                ])
+                state_changed.clear()
+                state_changed.wait() # Statik renkteyken işlem biter bitmez uyur
+                continue
+                
             elif mode == "breathing":
                 period = 8.0 - (spd * 0.06)
                 phase  = 0.1 + 0.9 * ((math.sin(2 * math.pi * t / period) + 1) / 2)
@@ -425,8 +436,10 @@ class AnimationEngine(threading.Thread):
                 for r, g, b in targets
             ])
 
-            sleep = 0.5 if mode == "static" else max(self.FRAME_TIME - (time.time() - loop_start), 0.001)
-            time.sleep(sleep)
+            sleep_time = max(self.FRAME_TIME - (time.time() - loop_start), 0.001)
+            # Eğer bekleme sırasında bir event tetiklenirse, bekleme kırılır ve anında tepki verir
+            if state_changed.wait(timeout=sleep_time):
+                state_changed.clear()
 
     def _hex_to_rgb(self, h):
         h = str(h).lstrip("#")
@@ -485,6 +498,8 @@ def save_state():
             json.dump(snapshot, f)
     except Exception as e:
         logger.error(f"State save error: {e}")
+    finally:
+        state_changed.set()  # Durum kaydedildiğinde animasyon motorunu uyandır
 
 
 def load_state():
