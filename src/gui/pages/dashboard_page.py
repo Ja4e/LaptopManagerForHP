@@ -2,7 +2,7 @@
 """
 Dashboard Page — HP Laptop Manager
 Provides system overview: temps, battery, hardware profile, resource usage,
-and quick actions.  All heavy I/O runs in a background thread.
+and quick actions. All heavy I/O runs in a background thread.
 """
 
 import gi, math, json, subprocess, os, shutil, threading
@@ -109,12 +109,6 @@ class DonutChart(Gtk.DrawingArea):
         cr.show_text(self.label)
 
 # ═════════════════════════════════════════════════════════════════════════════
-#  PERF SLIDER  –  Animated segmented control
-# ═════════════════════════════════════════════════════════════════════════════
-
-# ═════════════════════════════════════════════════════════════════════════════
-#  PERF SLIDER  –  (Removed in favor of Fan Page Native Toggle Layout)
-# ═════════════════════════════════════════════════════════════════════════════
 #  DASHBOARD PAGE
 # ═════════════════════════════════════════════════════════════════════════════
 _REFRESH_MS = 5000          # background fetch period
@@ -144,7 +138,11 @@ class DashboardPage(Gtk.Box):
 
         self._build()
         self._timer_id = GLib.timeout_add(_REFRESH_MS, self._tick)
-        GLib.idle_add(self._tick)
+
+        # İlk veri çekimini doğrudan thread ile başlatıyoruz (idle_add kullanmadan)
+        if not self._busy:
+            self._busy = True
+            threading.Thread(target=self._fetch, daemon=True).start()
 
     # ── public ────────────────────────────────────────────────────────────
     def set_service(self, svc):
@@ -426,7 +424,6 @@ class DashboardPage(Gtk.Box):
                 else:
                     self.service.SetFanMode("max")
             elif action_id == "balanced" or action_id == "eco":
-                # Only pass the exact strings expected by daemon
                 self.service.SetPowerProfile(action_id if action_id == "balanced" else "power-saver")
             elif action_id == "performance" or action_id == "perf":
                 self.service.SetPowerProfile("performance")
@@ -439,21 +436,24 @@ class DashboardPage(Gtk.Box):
     #  BACKGROUND DATA FETCH  –  keeps UI thread free
     # ═════════════════════════════════════════════════════════════════════════
     def _tick(self):
-        if self._busy:
-            return True
-        if not self.get_mapped():
-            return True
+        # Eğer bu fonksiyon yanlışlıkla idle_add ile çağrılırsa sonsuz döngüye girmesin.
+        if not self.get_mapped() or self._busy:
+            return GLib.SOURCE_CONTINUE
+            
         self._busy = True
         threading.Thread(target=self._fetch, daemon=True).start()
-        return True
+        return GLib.SOURCE_CONTINUE
 
     def _fetch(self):
         """Run ALL blocking I/O here (daemon D-Bus, /proc, nvidia-smi)."""
         d = {}
-        svc = self.service
-
-        # ── Daemon calls ──────────────────────────────────────────────────
-        if svc:
+        
+        ctx = GLib.MainContext()
+        ctx.push_thread_default()
+        try:
+            from pydbus import SystemBus
+            bus = SystemBus()
+            svc = bus.get("com.yyl.hpmanager")
             for key, method in (("sys", "GetSystemInfo"),
                                 ("fan", "GetFanInfo"),
                                 ("pp",  "GetPowerProfile"),
@@ -462,6 +462,10 @@ class DashboardPage(Gtk.Box):
                     d[key] = json.loads(getattr(svc, method)())
                 except Exception:
                     pass
+        except Exception:
+            pass
+        finally:
+            ctx.pop_thread_default()
 
         # ── CPU/GPU temp — prefer daemon values for consistency with fan page ─
         si = d.get("sys", {})
