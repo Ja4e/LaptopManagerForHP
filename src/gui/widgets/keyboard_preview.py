@@ -130,31 +130,26 @@ class KeyboardPreview(Gtk.DrawingArea):
             # Everything off
             actual_colors = [(0, 0, 0) for _ in range(8)]
         else:
-            speed_factor = max(1, self.speed) / 50.0 # 0.02 - 2.0
+            spd = float(self.speed)
             
             if self.mode == "breathing":
-                # Sine wave breathing
-                cycle = (now * speed_factor) % (2 * math.pi)
-                intensity = (math.sin(cycle) + 1) / 2 # 0.0 to 1.0
-                actual_colors = [(r*intensity, g*intensity, b*intensity) for r,g,b in self.zone_colors]
+                # Matches daemon: period = 8.0 - (spd * 0.06)
+                period = 8.0 - (spd * 0.06)
+                phase = 0.1 + 0.9 * ((math.sin(2 * math.pi * now / period) + 1) / 2)
+                actual_colors = [(r*phase, g*phase, b*phase) for r,g,b in self.zone_colors[:4]]
                 
             elif self.mode == "wave":
-                # Moving wave across zones
+                # Matches daemon: hue = (t * spd * 0.007 + offset) % 1.0
                 for i in range(4):
-                    z_offset = i if self.direction == "ltr" else (3 - i)
-                    # Create a phase shift for each zone
-                    phase = (now * speed_factor * 2) - (z_offset * 1.5)
-                    intensity = (math.sin(phase) + 1) / 2
-                    
-                    # Optional: In wave mode usually all zones take color 0 or cycle through spectrum
-                    # For simplicity, we pulse the color they have currently assigned
-                    r, g, b = self.zone_colors[i]
-                    actual_colors[i] = (float(r) * float(intensity), float(g) * float(intensity), float(b) * float(intensity))
+                    offset = (i * 0.15) if self.direction == "ltr" else ((3 - i) * 0.15)
+                    hue = (now * spd * 0.007 + offset) % 1.0
+                    r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+                    actual_colors[i] = (r, g, b)
                     
             elif self.mode == "cycle":
-                # Cycle through hues synchronously
-                cycle = (now * speed_factor * 0.5) % 1.0
-                r, g, b = colorsys.hls_to_rgb(cycle, 0.5, 1.0)
+                # Matches daemon: hue = (t * (spd * 0.003)) % 1.0
+                hue = (now * (spd * 0.003)) % 1.0
+                r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
                 actual_colors = [(r, g, b) for _ in range(4)]
                 
         # Apply global brightness
