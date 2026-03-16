@@ -384,22 +384,46 @@ class FanPage(Gtk.Box):
         self.fan1_spark.set_dark(is_dark)
         self.fan2_spark.set_dark(is_dark)
 
-    def _get_hw_power_limits(self):
-        gpu_w, cpu_w = 0, 0
+    def _fetch_hw_power_limits_async(self):
+        def _bg():
+            cpu_w, gpu_w = 0, 0
             
-        try:
-            rapl = "/sys/class/powercap/intel-rapl/intel-rapl:0/constraint_1_power_limit_uw" # PL2 is usually Max
-            if not os.path.exists(rapl):
-                rapl = "/sys/class/powercap/intel-rapl/intel-rapl:0/constraint_0_power_limit_uw"
-            if os.path.exists(rapl):
-                with open(rapl) as f:
-                    val = int(f.read().strip())
-                    if val > 0:
-                        cpu_w = val // 1000000
-        except Exception:
-            pass
+            try:
+                rapl = "/sys/class/powercap/intel-rapl/intel-rapl:0/constraint_1_power_limit_uw" # PL2 is usually Max
+                if not os.path.exists(rapl):
+                    rapl = "/sys/class/powercap/intel-rapl/intel-rapl:0/constraint_0_power_limit_uw"
+                if os.path.exists(rapl):
+                    with open(rapl) as f:
+                        val = int(f.read().strip())
+                        if val > 0:
+                            cpu_w = val // 1000000
+            except Exception:
+                pass
+                
+            try:
+                import subprocess
+                out = subprocess.check_output(
+                    ["nvidia-smi", "--query-gpu=power.max_limit", "--format=csv,noheader,nounits"],
+                    stderr=subprocess.DEVNULL, timeout=2.0
+                ).decode().strip()
+                if out:
+                    try:
+                        gpu_w = int(float(out))
+                    except: pass
+            except Exception:
+                pass
+                
+            GLib.idle_add(self._update_hw_limit_tooltip, cpu_w, gpu_w)
             
-        return cpu_w, gpu_w
+        import threading
+        threading.Thread(target=_bg, daemon=True).start()
+
+    def _update_hw_limit_tooltip(self, cpu_w, gpu_w):
+        if not (cpu_w or gpu_w): return
+        limit_str = f" (CPU: ~{cpu_w}W, GPU: ~{gpu_w}W limitine kadar)"
+        if "performance" in getattr(self, "profile_buttons", {}):
+            base_tooltip = T("performance_tooltip")
+            self.profile_buttons["performance"].set_tooltip_text(f"{base_tooltip}{limit_str}")
 
     def _build_ui(self):
         scroll = SmoothScrolledWindow(vexpand=True)
@@ -538,13 +562,10 @@ class FanPage(Gtk.Box):
         self.profile_box = Gtk.Box(spacing=15, halign=Gtk.Align.CENTER, homogeneous=True)
         self.profile_group = None
         
-        cpu_w, gpu_w = self._get_hw_power_limits()
-        hw_limits_str = f" (CPU: ~{cpu_w}W, GPU: ~{gpu_w}W limitine kadar)" if (cpu_w or gpu_w) else ""
-
         profiles = [
             ("power-saver", "🔋", T("saver"), T("saver_tooltip")),
             ("balanced", "⚖️", T("balanced"), T("balanced_tooltip")),
-            ("performance", "🚀", T("performance"), f"{T('performance_tooltip')}{hw_limits_str}"),
+            ("performance", "🚀", T("performance"), T("performance_tooltip")),
         ]
         self.profile_buttons = {}
         for pid, emoji, label, desc in profiles:
@@ -638,6 +659,9 @@ class FanPage(Gtk.Box):
         
         # Initial mode set (will be updated by daemon sync)
         self.set_fan_mode_ui("standard")
+        
+        # Fetch power limits async to populate profile tooltips
+        self._fetch_hw_power_limits_async()
 
     def _unblock_sync(self):
         self._block_sync = False

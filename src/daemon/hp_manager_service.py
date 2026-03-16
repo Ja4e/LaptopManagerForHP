@@ -350,10 +350,41 @@ class PowerProfileController:
                         with open(path, "w") as f:
                             f.write(val)
                         break
+
+            # Enforce manual NVIDIA TGP limits dynamically
+            threading.Thread(target=self._sync_nvidia_power, args=(profile,), daemon=True).start()
+
             return True
         except Exception as e:
             logger.error(f"Power profile set error ({self.mode}): {e}")
             return False
+
+    def _sync_nvidia_power(self, profile):
+        try:
+            if not shutil.which("nvidia-smi"): return
+            
+            if profile == "performance":
+                # Unlock to hardware max limit
+                out = subprocess.check_output(
+                    ["nvidia-smi", "--query-gpu=power.max_limit", "--format=csv,noheader,nounits"],
+                    timeout=2.0
+                ).decode().strip()
+                if out:
+                    limit = int(float(out))
+                    subprocess.run(["nvidia-smi", "-pl", str(limit)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2.0)
+                    logger.info(f"NVIDIA GPU locked to MAX Performance: {limit}W")
+            else:
+                # Revert to factory default limit for balanced / saver
+                out = subprocess.check_output(
+                    ["nvidia-smi", "--query-gpu=power.default_limit", "--format=csv,noheader,nounits"],
+                    timeout=2.0
+                ).decode().strip()
+                if out:
+                    limit = int(float(out))
+                    subprocess.run(["nvidia-smi", "-pl", str(limit)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2.0)
+                    logger.info(f"NVIDIA GPU restored to DEFAULT Base: {limit}W")
+        except Exception as e:
+            logger.warning(f"Failed to sync NVIDIA power curve: {e}")
 
 
 # ============================================================
