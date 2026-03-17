@@ -65,6 +65,7 @@ cd LaptopManagerForHP
 chmod +x setup.sh
 sudo ./setup.sh install
 ```
+Installation Warning⚠️: We recommend restart your computer after installation.
 
 The installer will automatically:
 1. Detect your package manager and install dependencies.
@@ -74,8 +75,6 @@ The installer will automatically:
 3. Install the daemon and GUI components.
 4. Set up system services.
 5. Provide a troubleshooting guide if issues occur.
-
-> ⚠️ **Secure Boot Warning**: The `hp-rgb-lighting` kernel module (keyboard RGB control) **cannot be loaded** when Secure Boot is enabled. If you need keyboard lighting control, you must disable Secure Boot from your BIOS settings. Fan control and other features work normally regardless of Secure Boot status on kernel 7.0+.
 
 ## 🗑️ Uninstallation
 
