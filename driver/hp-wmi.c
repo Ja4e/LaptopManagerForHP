@@ -1503,14 +1503,14 @@ static int platform_profile_omen_set_ec(enum platform_profile_option profile) {
     err = omen_thermal_profile_ec_timer_set(0);
     if (err < 0)
       return err;
-
-    if (profile == PLATFORM_PROFILE_PERFORMANCE)
-      flags = HP_OMEN_EC_FLAGS_NOTIMER | HP_OMEN_EC_FLAGS_TURBO;
-
-    err = omen_thermal_profile_ec_flags_set(flags);
-    if (err < 0)
-      return err;
   }
+
+  if (profile == PLATFORM_PROFILE_PERFORMANCE)
+    flags = HP_OMEN_EC_FLAGS_NOTIMER | HP_OMEN_EC_FLAGS_TURBO;
+
+  err = omen_thermal_profile_ec_flags_set(flags);
+  if (err < 0)
+    pr_warn("Failed to set thermal profile EC flags: %d\n", err);
 
   return 0;
 }
